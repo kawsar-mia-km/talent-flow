@@ -1,0 +1,137 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "TalentFlow API",
+    "version": "1.0.0",
+    "description": "AI-powered recruitment platform API. Most endpoints require a Bearer access token obtained from /auth/login or /auth/register; the refresh token is delivered separately as an httpOnly cookie."
+  },
+  "servers": [{ "url": "/api" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": { "message": { "type": "string" } }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Service health check",
+        "security": [],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "summary": "Create a candidate or recruiter account",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": {
+            "name": { "type": "string" }, "email": { "type": "string" }, "password": { "type": "string" },
+            "role": { "type": "string", "enum": ["candidate", "recruiter"] }, "companyName": { "type": "string" }
+          }, "required": ["name", "email", "password"] } } }
+        },
+        "responses": { "201": { "description": "Account created" }, "409": { "description": "Email already exists" } }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Log in with email + password",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": {
+            "email": { "type": "string" }, "password": { "type": "string" }
+          }, "required": ["email", "password"] } } }
+        },
+        "responses": {
+          "200": { "description": "Logged in, or twoFactorRequired:true with a twoFactorToken if 2FA is enabled" },
+          "401": { "description": "Invalid credentials" },
+          "423": { "description": "Account temporarily locked after repeated failed attempts" }
+        }
+      }
+    },
+    "/auth/2fa/verify-login": {
+      "post": {
+        "summary": "Complete login by verifying a TOTP code",
+        "security": [],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": {
+          "twoFactorToken": { "type": "string" }, "code": { "type": "string" }
+        } } } } },
+        "responses": { "200": { "description": "Logged in" }, "401": { "description": "Invalid code or expired challenge" } }
+      }
+    },
+    "/auth/2fa/setup": { "post": { "summary": "Begin 2FA enrollment (returns QR code + secret)", "responses": { "200": { "description": "OK" } } } },
+    "/auth/2fa/verify": { "post": { "summary": "Confirm 2FA enrollment with a TOTP code", "responses": { "200": { "description": "2FA enabled" } } } },
+    "/auth/2fa/disable": { "post": { "summary": "Disable 2FA (requires password)", "responses": { "200": { "description": "2FA disabled" } } } },
+    "/auth/refresh": { "post": { "summary": "Rotate refresh token, issue new access token", "security": [], "responses": { "200": { "description": "OK" }, "401": { "description": "Session expired" } } } },
+    "/auth/logout": { "post": { "summary": "Revoke refresh token", "security": [], "responses": { "200": { "description": "OK" } } } },
+    "/auth/me": { "get": { "summary": "Current authenticated user", "responses": { "200": { "description": "OK" } } } },
+    "/auth/google": { "get": { "summary": "Start Google OAuth login (404 if not configured)", "security": [], "responses": { "302": { "description": "Redirect to Google" } } } },
+
+    "/jobs": {
+      "get": { "summary": "List open jobs (public, paginated, optional ?search=)", "security": [], "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Create a job posting (recruiter only)", "responses": { "201": { "description": "Created" } } }
+    },
+    "/jobs/mine": { "get": { "summary": "Jobs posted by your company's recruiter team", "responses": { "200": { "description": "OK" } } } },
+    "/jobs/recommended": { "get": { "summary": "Open jobs ranked by skill-overlap with your profile (candidate only)", "responses": { "200": { "description": "OK" } } } },
+    "/jobs/{id}": {
+      "get": { "summary": "Get a job by id", "security": [], "responses": { "200": { "description": "OK" }, "404": { "description": "Not found" } } },
+      "patch": { "summary": "Update a job (owner or same-company recruiter)", "responses": { "200": { "description": "Updated" }, "403": { "description": "Not your company's job" } } }
+    },
+    "/jobs/{id}/ranked-applicants": { "get": { "summary": "Applicants for a job, ranked by blended AI + skill-match score", "responses": { "200": { "description": "OK" } } } },
+
+    "/applications": { "post": { "summary": "Apply to a job (candidate only, multipart: resume/video/audio)", "responses": { "201": { "description": "Created" }, "409": { "description": "Already applied" } } } },
+    "/applications/mine": { "get": { "summary": "Your own applications (candidate)", "responses": { "200": { "description": "OK" } } } },
+    "/applications/recruiter": { "get": { "summary": "Applicants across your jobs (recruiter, paginated, ?jobId=)", "responses": { "200": { "description": "OK" } } } },
+    "/applications/{id}/status": { "patch": { "summary": "Update an applicant's status", "responses": { "200": { "description": "OK" } } } },
+    "/applications/{id}/interview": {
+      "patch": { "summary": "Schedule an interview (emails an .ics calendar invite)", "responses": { "200": { "description": "OK" } } },
+      "delete": { "summary": "Cancel a scheduled interview", "responses": { "200": { "description": "OK" } } }
+    },
+    "/applications/{id}/resume": { "get": { "summary": "Download the candidate's resume (owner/recruiter/admin only)", "responses": { "200": { "description": "File stream" } } } },
+    "/applications/{id}/explain": { "get": { "summary": "SHAP-based score explanation (requires ai-service)", "responses": { "200": { "description": "OK" }, "503": { "description": "AI service not enabled" } } } },
+    "/applications/{id}/messages": {
+      "get": { "summary": "Message thread for this application (candidate/recruiter only)", "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Send a message", "responses": { "201": { "description": "Sent" } } }
+    },
+    "/applications/{id}/notes": {
+      "get": { "summary": "Internal recruiter-team notes on a candidate (never visible to the candidate)", "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Add an internal note", "responses": { "201": { "description": "Added" } } }
+    },
+
+    "/assessments": { "post": { "summary": "Create an MCQ skills assessment for a job (recruiter)", "responses": { "201": { "description": "Created" } } } },
+    "/assessments/job/{jobId}": { "get": { "summary": "List assessments for a job (answers hidden for candidates)", "responses": { "200": { "description": "OK" } } } },
+    "/assessments/{id}": { "get": { "summary": "Get one assessment", "responses": { "200": { "description": "OK" } } } },
+    "/assessments/{id}/submit": { "post": { "summary": "Submit answers (candidate, auto-scored)", "responses": { "201": { "description": "Scored" }, "409": { "description": "Already submitted" } } } },
+    "/assessments/{id}/submissions": { "get": { "summary": "View all submissions for your assessment (recruiter)", "responses": { "200": { "description": "OK" } } } },
+
+    "/saved-searches": {
+      "get": { "summary": "Your saved job searches (candidate)", "responses": { "200": { "description": "OK" } } },
+      "post": { "summary": "Save a search for email alerts", "responses": { "201": { "description": "Created" } } }
+    },
+    "/saved-searches/{id}": { "delete": { "summary": "Delete a saved search", "responses": { "200": { "description": "OK" } } } },
+
+    "/notifications/mine": { "get": { "summary": "Your recent notifications", "responses": { "200": { "description": "OK" } } } },
+
+    "/users": { "get": { "summary": "List all users (admin)", "responses": { "200": { "description": "OK" } } } },
+    "/users/stats": { "get": { "summary": "Platform-wide stats (admin)", "responses": { "200": { "description": "OK" } } } },
+    "/users/audit-log": { "get": { "summary": "Admin action audit log (admin, paginated)", "responses": { "200": { "description": "OK" } } } },
+    "/users/{id}/toggle-status": { "patch": { "summary": "Activate/deactivate a user (admin)", "responses": { "200": { "description": "OK" } } } },
+    "/users/me/export": { "get": { "summary": "Download all of your own data as JSON (GDPR-style export)", "responses": { "200": { "description": "File download" } } } },
+    "/users/me": { "delete": { "summary": "Delete your own account and data (GDPR-style)", "responses": { "200": { "description": "Deleted" }, "409": { "description": "Recruiter must close open jobs first" } } } },
+    "/users/me/skills": { "patch": { "summary": "Update your candidate skills profile (used for job recommendations)", "responses": { "200": { "description": "OK" } } } },
+
+    "/billing/checkout": { "post": { "summary": "Create a Stripe Checkout session for the recruiter Pro plan (503 if billing isn't configured)", "responses": { "200": { "description": "OK" }, "503": { "description": "Billing not configured" } } } },
+
+    "/fairness/report": { "get": { "summary": "Fairness/selection-rate audit across a demographic field (requires ai-service)", "responses": { "200": { "description": "OK" } } } },
+    "/reports/applications.xlsx": { "get": { "summary": "Export applicants as an Excel workbook", "responses": { "200": { "description": "File stream" } } } },
+    "/reports/applications.pdf": { "get": { "summary": "Export applicants as a PDF report", "responses": { "200": { "description": "File stream" } } } }
+  }
+}

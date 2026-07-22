@@ -1,0 +1,23 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: "Inter", sans-serif;
+  transition: background-color 0.15s ease;
+}
+
+.dark body {
+  background-color: #020617;
+}
+
+@keyframes tf-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-tf-pulse {
+  animation: tf-pulse 1.5s ease-in-out infinite;
+}
+
