@@ -17,7 +17,7 @@ numpy==1.26.4
 # Voice analysis
 openai-whisper==20231117
 librosa==0.10.2
-soundfile==0.12.1
+soundfile==0.14.0
 
 # Explainability / fairness
 shap==0.45.1
