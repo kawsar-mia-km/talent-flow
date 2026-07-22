@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # System deps needed by opencv/mediapipe/librosa
 RUN apt-get update && apt-get install -y --no-install-recommends \
